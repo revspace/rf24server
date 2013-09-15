@@ -1,0 +1,28 @@
+"rf24server" by Juerd Waalboer
+
+Very simple rf24-to-serial interface, designed for the Arduino Nano v3.
+
+- First byte of packet payloads must be the number of bytes remaining.
+- Only 32 of 40 address bits are used, so 0xFFFFFF is actually 0x00FFFFFF.
+- The server is hard coded at 0x99669966.
+- The bit rate is hard coded at 115200.
+- Messages are limited to 15 bytes (16 including length field).
+
+Receiving:
+- Received packets are dumped on serial: hexadecimal string, followed by CRLF.
+- The length field is not printed.
+
+Sending:
+- Send a hexadecimal string over serial, followed by any number of CR and/or LF.
+- The first 4 bytes (8 hex digits) are used as the address to send to.
+- The 5th byte is ignored.
+- The remainder will be sent.
+
+Connections:
+- Arduino 3.3V to nRF24L01+ VCC
+- Arduino GND  to nRF24L01+ GND
+- Arduino   8  to nRF24L01+ CE
+- Arduino  10  to nRF24L01+ CS
+- Arduino  11  to nRF24L01+ MOSI
+- Arduino  12  to nRF24L01+ MISO
+- Arduino  13  to nRF24L01+ CLK
