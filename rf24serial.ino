@@ -4,15 +4,16 @@
 
 // NB: This sketch assumes 32 bit addresses
 
-static long int address = 0x66996699L;  // So that's 0x0066996699
-const int payload = 16;  // 32 is supported but not very reliable
+static uint64_t address = 0x0066996699ULL;
+const int payload = 34;
+const int reset_every = 1;
 
 RF24 rf(/*ce*/ 8, /*cs*/ 10);
 
 static union {
     unsigned char buf[36];
     struct {
-        uint32_t address;
+        long int address;
         unsigned char message[payload];
     } packet;
 } in;
@@ -23,13 +24,21 @@ unsigned char hexdigit(byte c) {
     if (c >= 'A' && c <= 'F') return c - 'A' + 10;
 }
 
-void setup() {
-    Serial.begin(115200);
+void setup_radio() {
     rf.begin();
+    rf.setAutoAck(0);
     rf.setRetries(15, 15);
     rf.enableDynamicPayloads();
     rf.openReadingPipe(1, address);
     rf.startListening();
+    rf.setCRCLength(RF24_CRC_16);
+}
+
+void setup() {
+    Serial.begin(115200);
+    Serial.print("INIT");
+    setup_radio();
+    Serial.println(rf.getCRCLength());
 }
 
 
@@ -38,17 +47,21 @@ void loop() {
     static int inpos = 0;  // nibble position
     static bool uriencoded = false;
     bool ok;
-    unsigned char buf[payload];
+    unsigned char buf[80];
     unsigned char c, h;
+    static int counter = 0;
 
     while (Serial.available()) {
         c = Serial.read();
         if (c == '\r' || c == '\n') {
             if (inpos > sizeof(in.packet.address)) {
                 in.packet.message[0] = inpos / 2 - 4 - 1;
-                rf.openWritingPipe(in.packet.address);
                 rf.stopListening();
+                rf.openWritingPipe(in.packet.address);
                 rf.write(in.packet.message, inpos / 2 - 4);
+                //Serial.println(in.packet.address);
+                //Serial.println((char*) in.packet.message);
+                //Serial.println(in.packet.message[0]);
                 rf.startListening();
             }
             inpos = 0;
@@ -73,8 +86,12 @@ void loop() {
     }
 
     while (rf.available()) {
-        if (rf.read(&buf, sizeof(buf))) {
-            hexdump(&buf[1], buf[0]);
+        rf.read(&buf, sizeof(buf));
+        if (buf[0] > 31) continue;
+        hexdump(&buf[1], buf[0]);
+        if (++counter >= reset_every) {
+            setup_radio();
+            counter = 0;
         }
     }
 }
@@ -88,7 +105,8 @@ void hexdump(unsigned char* string, int size) {
     if (n < 10)  Serial.write('0' + n);
     if (n >= 10) Serial.write('A' + (n - 10));
   }
-  Serial.print("\r\n");
+  Serial.write('\r');
+  Serial.write('\n');
 }
 
 
